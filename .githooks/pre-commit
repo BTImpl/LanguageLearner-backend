@@ -1,0 +1,17 @@
+#!/usr/bin/env sh
+# Runs the formatting check before every commit.
+# Enable it once per clone:  git config core.hooksPath .githooks
+
+if ! command -v mvn >/dev/null 2>&1; then
+  echo "pre-commit: 'mvn' not found in PATH, skipping the format check (CI still runs it)." >&2
+  exit 0
+fi
+
+cd "$(git rev-parse --show-toplevel)" || exit 1
+
+if ! tool/format.sh check; then
+  echo >&2
+  echo "pre-commit: formatting check failed." >&2
+  echo "Run 'tool/format.sh fix', stage the changes and commit again." >&2
+  exit 1
+fi
