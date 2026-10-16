@@ -1,0 +1,15 @@
+# Defaults for local runs. Everything that differs per environment comes from
+# environment variables; no secret belongs in this file.
+spring:
+  application:
+    name: languagelearner-backend
+
+server:
+  # Cloud Run tells the port in PORT.
+  port: ${PORT:8080}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
