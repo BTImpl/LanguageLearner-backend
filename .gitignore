@@ -1,0 +1,21 @@
+# Build output
+target/
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.classpath
+.project
+.settings/
+
+# OS
+.DS_Store
+
+# Secrets: never commit these
+.env
+.env.*
+*.pem
+*.p12
+service-account*.json
+credentials*.json
