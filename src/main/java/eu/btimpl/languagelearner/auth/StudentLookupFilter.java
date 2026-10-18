@@ -1,0 +1,77 @@
+package eu.btimpl.languagelearner.auth;
+
+import eu.btimpl.languagelearner.api.ApiErrors;
+import eu.btimpl.languagelearner.sheets.SheetsException;
+import eu.btimpl.languagelearner.sheets.Student;
+import eu.btimpl.languagelearner.sheets.StudentDirectory;
+import jakarta.servlet.FilterChain;
+import jakarta.servlet.ServletException;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Optional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.oauth2.server.resource.authentication.JwtAuthenticationToken;
+import org.springframework.web.filter.OncePerRequestFilter;
+
+/**
+ * Runs right after the token has been verified. Looks the student up in the teacher's sheet by the
+ * e-mail address of the token: a student found becomes the principal of the request, an address
+ * that is not in the sheet is answered with 403 {@code STUDENT_NOT_FOUND}.
+ *
+ * <p>Only {@code /api/} requests are checked; the health endpoint stays open. It is not a bean on
+ * purpose: a filter bean would also be added to the servlet container and run a second time.
+ */
+public class StudentLookupFilter extends OncePerRequestFilter {
+
+  private static final Logger log = LoggerFactory.getLogger(StudentLookupFilter.class);
+
+  private final StudentDirectory directory;
+
+  public StudentLookupFilter(StudentDirectory directory) {
+    this.directory = directory;
+  }
+
+  @Override
+  protected boolean shouldNotFilter(HttpServletRequest request) {
+    return !request.getRequestURI().startsWith("/api/");
+  }
+
+  @Override
+  protected void doFilterInternal(
+      HttpServletRequest request, HttpServletResponse response, FilterChain chain)
+      throws ServletException, IOException {
+    Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    if (authentication instanceof JwtAuthenticationToken jwtAuthentication) {
+      Optional<Student> student;
+      try {
+        student = directory.findByEmail(jwtAuthentication.getToken().getClaimAsString("email"));
+      } catch (SheetsException e) {
+        log.error("The students could not be read from the spreadsheet", e);
+        ApiErrors.write(
+            response,
+            HttpStatus.SERVICE_UNAVAILABLE,
+            "SHEET_UNAVAILABLE",
+            "The word list is not available right now");
+        return;
+      }
+      if (student.isEmpty()) {
+        ApiErrors.write(
+            response,
+            HttpStatus.FORBIDDEN,
+            "STUDENT_NOT_FOUND",
+            "This account is not on the student list");
+        return;
+      }
+      SecurityContextHolder.getContext()
+          .setAuthentication(
+              new StudentAuthentication(
+                  CurrentStudent.of(student.get()), jwtAuthentication.getToken()));
+    }
+    chain.doFilter(request, response);
+  }
+}

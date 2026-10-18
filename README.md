@@ -55,6 +55,7 @@ Everything that differs per environment comes from environment variables;
 | `PORT` | port the service listens on | `8080` |
 | `SHEETS_SPREADSHEET_ID` | id of the teacher's spreadsheet (the part of its URL between `/d/` and `/edit`) | empty; reading fails until it is set |
 | `SHEETS_STUDENTS_TAB` | name of the tab that lists the students | `Students` |
+| `AUTH_GOOGLE_CLIENT_ID` | the web OAuth client id; sign-in tokens are only accepted when issued for it | empty; every token is rejected until it is set |
 
 More variables (spreadsheet id, web client id, database connection) are added
 by the cards that need them and listed here.
@@ -84,6 +85,31 @@ gcloud auth application-default login \
 export SHEETS_SPREADSHEET_ID=<spreadsheet id>
 mvn spring-boot:run
 ```
+
+## Sign-in
+
+Every endpoint except `/actuator/health` needs the Google ID token of the
+student in the header `Authorization: Bearer <token>`. The service checks the
+signature against Google's public keys and that the token
+
+- is not expired,
+- was issued by Google (`https://accounts.google.com`),
+- was issued for the web client in `AUTH_GOOGLE_CLIENT_ID` (`aud`),
+- has a verified e-mail address (`email_verified`).
+
+The e-mail address is then looked up on the `Students` tab. The answers are:
+
+| Case | Status | Body |
+| --- | --- | --- |
+| no, invalid, expired or foreign token | 401 | `{"code":"UNAUTHORIZED", ...}` |
+| valid token, e-mail not on the student list | 403 | `{"code":"STUDENT_NOT_FOUND", ...}` |
+| the spreadsheet cannot be read | 503 | `{"code":"SHEET_UNAVAILABLE", ...}` |
+
+All errors have the form `{"code": "...", "message": "..."}`. The endpoints never
+take a student id from the request: they work from the token, so a student can
+only reach their own data. `GET /api/v1/me` returns the signed-in student's
+`email` and `name`. In a controller the student is available as
+`@AuthenticationPrincipal CurrentStudent student`.
 
 ## Git hook
 
