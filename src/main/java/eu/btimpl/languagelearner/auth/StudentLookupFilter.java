@@ -23,8 +23,9 @@ import org.springframework.web.filter.OncePerRequestFilter;
  * e-mail address of the token: a student found becomes the principal of the request, an address
  * that is not in the sheet is answered with 403 {@code STUDENT_NOT_FOUND}.
  *
- * <p>Only {@code /api/} requests are checked; the health endpoint stays open. It is not a bean on
- * purpose: a filter bean would also be added to the servlet container and run a second time.
+ * <p>Every request with a token is checked except the health endpoint, which stays open, so a
+ * Google account that is not on the list cannot read anything. It is not a bean on purpose: a
+ * filter bean would also be added to the servlet container and run a second time.
  */
 public class StudentLookupFilter extends OncePerRequestFilter {
 
@@ -38,7 +39,7 @@ public class StudentLookupFilter extends OncePerRequestFilter {
 
   @Override
   protected boolean shouldNotFilter(HttpServletRequest request) {
-    return !request.getRequestURI().startsWith("/api/");
+    return request.getRequestURI().startsWith("/actuator/health");
   }
 
   @Override
