@@ -217,7 +217,8 @@ of that client first) and copying the `id_token` of the token exchange. The
 token is valid for an hour.
 
 Logs: `gcloud run services logs read languagelearner-backend --region "$REGION" --limit 50`
-(they are structured, in Google's format, so the console can filter by severity).
+(plain text; a container that does not start is explained in the log of its
+revision, which the failed deployment prints a link to).
 
 ## Rolling back to an earlier version
 

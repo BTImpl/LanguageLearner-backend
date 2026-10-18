@@ -67,7 +67,7 @@ jobs:
             --memory 512Mi \
             --cpu-boost \
             --timeout 60 \
-            --set-env-vars "SHEETS_SPREADSHEET_ID=${SHEETS_SPREADSHEET_ID},AUTH_GOOGLE_CLIENT_ID=${AUTH_GOOGLE_CLIENT_ID},LOGGING_STRUCTURED_FORMAT_CONSOLE=gcp" \
+            --set-env-vars "SHEETS_SPREADSHEET_ID=${SHEETS_SPREADSHEET_ID},AUTH_GOOGLE_CLIENT_ID=${AUTH_GOOGLE_CLIENT_ID}" \
             --set-secrets "DATABASE_URL=languagelearner-database-url:latest,DATABASE_USERNAME=languagelearner-database-username:latest,DATABASE_PASSWORD=languagelearner-database-password:latest"
 
       - name: Check the new revision
