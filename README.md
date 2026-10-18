@@ -53,9 +53,37 @@ Everything that differs per environment comes from environment variables;
 | Variable | Meaning | Default |
 | --- | --- | --- |
 | `PORT` | port the service listens on | `8080` |
+| `SHEETS_SPREADSHEET_ID` | id of the teacher's spreadsheet (the part of its URL between `/d/` and `/edit`) | empty; reading fails until it is set |
+| `SHEETS_STUDENTS_TAB` | name of the tab that lists the students | `Students` |
 
 More variables (spreadsheet id, web client id, database connection) are added
 by the cards that need them and listed here.
+
+## Google Sheet
+
+The teacher keeps the words in one spreadsheet, shared with the service account
+as viewer. The service only reads it (`spreadsheets.readonly`).
+
+- Tab `Students` (name configurable), first row `email | name | tab`: one row
+  per student; `tab` is the name of that student's own tab.
+- One tab per student, first row `english | hungarian | deck | example`: the
+  `deck` column groups the words into decks (empty means the deck `Szavak`).
+  A cell may hold several accepted answers separated by `;`; the first one is
+  shown. `example` is optional.
+- Columns are found by their header, case-insensitively, so their order does
+  not matter. Rows without an English or a Hungarian word are skipped.
+
+Authentication is the application default one. On Cloud Run that is the service
+account the service runs as. Locally, impersonate the service account (you need
+the Service Account Token Creator role on it) or point
+`GOOGLE_APPLICATION_CREDENTIALS` at a key file kept outside the repository:
+
+```
+gcloud auth application-default login \
+  --impersonate-service-account=<service account e-mail>
+export SHEETS_SPREADSHEET_ID=<spreadsheet id>
+mvn spring-boot:run
+```
 
 ## Git hook
 
