@@ -20,6 +20,7 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /**
@@ -28,6 +29,8 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(AuthTestSupport.Config.class)
+// Every test sets up its own sheet, so nothing may be kept between requests.
+@TestPropertySource(properties = {"app.cache.students-ttl=0s", "app.cache.decks-ttl=0s"})
 class AuthenticationIntegrationTest {
 
   private static final List<List<String>> STUDENTS =

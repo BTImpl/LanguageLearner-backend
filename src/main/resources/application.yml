@@ -20,6 +20,13 @@ app:
     spreadsheet-id: ${SHEETS_SPREADSHEET_ID:}
     # Name of the tab that lists the students (email | name | tab).
     students-tab: ${SHEETS_STUDENTS_TAB:Students}
+  cache:
+    # How long the student list (the Students tab) is kept before the sheet is read again.
+    students-ttl: 5m
+    # How long the decks of a student are kept.
+    decks-ttl: 15m
+    # A student can force a re-read (POST /api/v1/decks/refresh) at most this often.
+    refresh-interval: 10s
   auth:
     # The web OAuth client id; a sign-in token is only accepted when issued for it.
     google-client-id: ${AUTH_GOOGLE_CLIENT_ID:}

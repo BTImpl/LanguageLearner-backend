@@ -56,6 +56,9 @@ Everything that differs per environment comes from environment variables;
 | `SHEETS_SPREADSHEET_ID` | id of the teacher's spreadsheet (the part of its URL between `/d/` and `/edit`) | empty; reading fails until it is set |
 | `SHEETS_STUDENTS_TAB` | name of the tab that lists the students | `Students` |
 | `AUTH_GOOGLE_CLIENT_ID` | the web OAuth client id; sign-in tokens are only accepted when issued for it | empty; every token is rejected until it is set |
+| `APP_CACHE_STUDENTS_TTL` | how long the student list is kept | `5m` |
+| `APP_CACHE_DECKS_TTL` | how long the decks of a student are kept | `15m` |
+| `APP_CACHE_REFRESH_INTERVAL` | shortest time between two refreshes of a student | `10s` |
 
 More variables (spreadsheet id, web client id, database connection) are added
 by the cards that need them and listed here.
@@ -119,6 +122,7 @@ All endpoints need the sign-in token (see above) and live under `/api/v1`.
 | --- | --- |
 | `GET /api/v1/me` | the signed-in student's `email` and `name` |
 | `GET /api/v1/decks` | the student's decks with all their words |
+| `POST /api/v1/decks/refresh` | reads the sheet again, answers like the `GET` |
 
 `GET /api/v1/decks` answers a list of decks, sorted by name; the words keep the
 order of the sheet:
@@ -146,6 +150,26 @@ order of the sheet:
 `updatedAt` is when the backend last read the student's words from the sheet.
 A student whose tab does not exist or is empty gets `[]`; when the sheet cannot
 be read the answer is 503 `SHEET_UNAVAILABLE`.
+
+### Cache and refresh
+
+The sheet is not read on every request. The `Students` tab is kept for 5
+minutes and the decks of a student for 15 minutes, so a change of the teacher
+shows up in the app within that time. The durations can be set with
+`app.cache.students-ttl`, `app.cache.decks-ttl` and `app.cache.refresh-interval`
+(or the environment variables `APP_CACHE_STUDENTS_TTL`, `APP_CACHE_DECKS_TTL`
+and `APP_CACHE_REFRESH_INTERVAL`, for example `10m`). `0s` switches a cache off.
+
+`POST /api/v1/decks/refresh` throws away what is kept for the student, the
+`Students` tab too, reads the sheet again and answers exactly like the `GET`.
+To protect the sheet's quota a student can refresh once per 10 seconds; asking
+more often returns the cached decks. If the sheet cannot be read during a
+refresh but decks were cached, those are returned with their old `updatedAt`;
+without cached decks the answer is 503 `SHEET_UNAVAILABLE`. A failed read is
+never cached.
+
+The cache lives in the memory of one instance; with several instances each has
+its own.
 
 The OpenAPI description is served at `/v3/api-docs`. Like everything else it
 needs a token of a student on the list.
