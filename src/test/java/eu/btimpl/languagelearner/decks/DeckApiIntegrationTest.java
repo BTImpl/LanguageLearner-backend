@@ -25,11 +25,14 @@ import org.springframework.boot.test.context.TestConfiguration;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Import;
 import org.springframework.context.annotation.Primary;
+import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /** The deck endpoint over real HTTP, with the sheet replaced by an in-memory one. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import(AuthTestSupport.Config.class)
+// Every test sets up its own sheet, so nothing may be kept between requests.
+@TestPropertySource(properties = {"app.cache.students-ttl=0s", "app.cache.decks-ttl=0s"})
 class DeckApiIntegrationTest {
 
   @TestConfiguration

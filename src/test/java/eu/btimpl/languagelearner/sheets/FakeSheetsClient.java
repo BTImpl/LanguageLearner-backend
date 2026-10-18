@@ -6,29 +6,35 @@ import java.util.List;
 import java.util.Map;
 
 /** A spreadsheet in memory: tabs with rows, and tabs that fail. */
-final class FakeSheetsClient implements SheetsClient {
+public final class FakeSheetsClient implements SheetsClient {
 
   private final Map<String, List<List<String>>> tabs = new HashMap<>();
   private final Map<String, SheetsException> failures = new HashMap<>();
   private int reads;
 
   /** One row; give fewer cells than the header to mimic the Sheets API dropping empty ones. */
-  static List<String> row(String... cells) {
+  public static List<String> row(String... cells) {
     return Arrays.asList(cells);
   }
 
   @SafeVarargs
-  final FakeSheetsClient tab(String name, List<String>... rows) {
+  public final FakeSheetsClient tab(String name, List<String>... rows) {
     tabs.put(name, List.of(rows));
     return this;
   }
 
-  FakeSheetsClient failing(String name, SheetsException failure) {
+  public FakeSheetsClient failing(String name, SheetsException failure) {
     failures.put(name, failure);
     return this;
   }
 
-  int reads() {
+  /** Lets a tab that was failing be read again. */
+  public FakeSheetsClient working(String name) {
+    failures.remove(name);
+    return this;
+  }
+
+  public int reads() {
     return reads;
   }
 
