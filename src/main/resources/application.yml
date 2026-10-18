@@ -20,3 +20,8 @@ app:
     spreadsheet-id: ${SHEETS_SPREADSHEET_ID:}
     # Name of the tab that lists the students (email | name | tab).
     students-tab: ${SHEETS_STUDENTS_TAB:Students}
+  auth:
+    # The web OAuth client id; a sign-in token is only accepted when issued for it.
+    google-client-id: ${AUTH_GOOGLE_CLIENT_ID:}
+    # Where Google publishes the keys its ID tokens are signed with.
+    google-jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
