@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.UUID;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Repository;
+import org.springframework.transaction.annotation.Transactional;
 
 /** The attempts table. */
 @Repository
@@ -45,6 +46,23 @@ public class AttemptRepository {
             .param("receivedAt", StudentRepository.toDb(attempt.receivedAt()))
             .update();
     return inserted == 1;
+  }
+
+  /**
+   * Stores the attempts in one transaction; the ones whose id is stored already are left as they
+   * are.
+   *
+   * @return how many were new
+   */
+  @Transactional
+  public int saveAll(List<Attempt> attempts) {
+    int saved = 0;
+    for (Attempt attempt : attempts) {
+      if (save(attempt)) {
+        saved++;
+      }
+    }
+    return saved;
   }
 
   /** The attempts of a student, oldest answer first. */
