@@ -3,6 +3,9 @@ package eu.btimpl.languagelearner.api;
 import eu.btimpl.languagelearner.sheets.SheetsException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.DataAccessResourceFailureException;
+import org.springframework.dao.TransientDataAccessException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.HttpStatusCode;
@@ -27,6 +30,14 @@ class ApiExceptionHandler extends ResponseEntityExceptionHandler {
     log.error("The spreadsheet could not be read", e);
     return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
         .body(new ApiError("SHEET_UNAVAILABLE", "The word list is not available right now"));
+  }
+
+  /** The database cannot be reached or is busy; trying again later may work. */
+  @ExceptionHandler({DataAccessResourceFailureException.class, TransientDataAccessException.class})
+  ResponseEntity<ApiError> databaseUnavailable(DataAccessException e) {
+    log.error("The database could not be used", e);
+    return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+        .body(new ApiError("DATABASE_UNAVAILABLE", "The results cannot be saved right now"));
   }
 
   @ExceptionHandler(Exception.class)

@@ -140,6 +140,7 @@ All endpoints need the sign-in token (see above) and live under `/api/v1`.
 | `GET /api/v1/me` | the signed-in student's `email` and `name` |
 | `GET /api/v1/decks` | the student's decks with all their words |
 | `POST /api/v1/decks/refresh` | reads the sheet again, answers like the `GET` |
+| `POST /api/v1/attempts` | uploads a batch of answers |
 
 `GET /api/v1/decks` answers a list of decks, sorted by name; the words keep the
 order of the sheet:
@@ -187,6 +188,43 @@ never cached.
 
 The cache lives in the memory of one instance; with several instances each has
 its own.
+
+### Uploading answers
+
+`POST /api/v1/attempts` stores the answers of the signed-in student:
+
+```
+{
+  "attempts": [
+    {
+      "id": "6f1c2a52-6b0e-4f7e-9a53-0d4c2f8b7a10",
+      "deckId": "…",
+      "wordId": "…",
+      "mode": "QUIZ",
+      "outcome": "FIRST_TRY",
+      "answeredAt": "2026-10-07T12:03:11Z"
+    }
+  ]
+}
+```
+
+`deckId` and `wordId` are the ids of `GET /api/v1/decks`; `mode` is one of
+`FLASHCARDS`, `MATCHING`, `QUIZ`, `TYPING`, `MIX` and `outcome` one of
+`FIRST_TRY`, `WITH_HELP`, `WRONG_FIRST`. The answer is `{"accepted": 2,
+"duplicates": 0}`.
+
+- **Idempotent.** The app generates the `id`. An answer whose id is stored
+  already is skipped and counted in `duplicates`, so after a network error the
+  app can simply send the same batch again.
+- **Snapshot.** The server copies the deck name and the English and Hungarian
+  words into the answer from the student's current decks. An answer about a
+  deck or word that is not in them (any more) is stored with empty copies.
+- **Limits.** At most 500 answers per request (an empty list is fine); every
+  field is required; an unknown `mode` or `outcome`, a bad id or time is a 400.
+- **Errors.** 503 `SHEET_UNAVAILABLE` when the decks cannot be read for the
+  snapshot, 503 `DATABASE_UNAVAILABLE` when the database is down. Nothing is
+  lost: the app keeps the answers and sends them again later. The batch is
+  stored in one transaction.
 
 The OpenAPI description is served at `/v3/api-docs`. Like everything else it
 needs a token of a student on the list.
