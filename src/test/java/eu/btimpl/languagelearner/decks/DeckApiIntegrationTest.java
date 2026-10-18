@@ -5,6 +5,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import eu.btimpl.languagelearner.TestDatabase;
 import eu.btimpl.languagelearner.auth.AuthTestSupport;
 import eu.btimpl.languagelearner.sheets.SheetsClient;
 import eu.btimpl.languagelearner.sheets.SheetsException;
@@ -30,7 +31,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 
 /** The deck endpoint over real HTTP, with the sheet replaced by an in-memory one. */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(AuthTestSupport.Config.class)
+@Import({AuthTestSupport.Config.class, TestDatabase.class})
 // Every test sets up its own sheet, so nothing may be kept between requests.
 @TestPropertySource(properties = {"app.cache.students-ttl=0s", "app.cache.decks-ttl=0s"})
 class DeckApiIntegrationTest {

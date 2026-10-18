@@ -4,6 +4,7 @@ import static eu.btimpl.languagelearner.sheets.FakeSheetsClient.row;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import eu.btimpl.languagelearner.TestClock;
+import eu.btimpl.languagelearner.TestDatabase;
 import eu.btimpl.languagelearner.auth.AuthTestSupport;
 import eu.btimpl.languagelearner.sheets.FakeSheetsClient;
 import eu.btimpl.languagelearner.sheets.SheetsException;
@@ -27,7 +28,7 @@ import org.springframework.context.annotation.Primary;
  * what one test leaves in the cache does not matter to another.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(AuthTestSupport.Config.class)
+@Import({AuthTestSupport.Config.class, TestDatabase.class})
 class DeckRefreshIntegrationTest {
 
   @TestConfiguration
