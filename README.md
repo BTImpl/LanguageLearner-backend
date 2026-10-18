@@ -111,6 +111,45 @@ only reach their own data. `GET /api/v1/me` returns the signed-in student's
 `email` and `name`. In a controller the student is available as
 `@AuthenticationPrincipal CurrentStudent student`.
 
+## API
+
+All endpoints need the sign-in token (see above) and live under `/api/v1`.
+
+| Endpoint | Meaning |
+| --- | --- |
+| `GET /api/v1/me` | the signed-in student's `email` and `name` |
+| `GET /api/v1/decks` | the student's decks with all their words |
+
+`GET /api/v1/decks` answers a list of decks, sorted by name; the words keep the
+order of the sheet:
+
+```
+[
+  {
+    "id": "…",
+    "name": "Travel",
+    "updatedAt": "2026-10-07T07:12:00Z",
+    "words": [
+      {
+        "id": "…",
+        "english": "boarding pass",
+        "hungarian": "beszállókártya",
+        "acceptedEnglish": ["boarding pass"],
+        "acceptedHungarian": ["beszállókártya"],
+        "example": null
+      }
+    ]
+  }
+]
+```
+
+`updatedAt` is when the backend last read the student's words from the sheet.
+A student whose tab does not exist or is empty gets `[]`; when the sheet cannot
+be read the answer is 503 `SHEET_UNAVAILABLE`.
+
+The OpenAPI description is served at `/v3/api-docs`. Like everything else it
+needs a token of a student on the list.
+
 ## Git hook
 
 A pre-commit hook runs the formatting check before every commit, the same
