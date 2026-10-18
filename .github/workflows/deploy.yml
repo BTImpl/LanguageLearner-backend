@@ -1,0 +1,90 @@
+name: Deploy
+
+# Every change that reaches main (through a pull request whose CI was green) is
+# built into an image and deployed to Cloud Run, with no one clicking anything.
+# One-time setup of Google Cloud and Neon: docs/deployment.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Deployments go one after the other; a running one is never cancelled halfway.
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  id-token: write # for Workload Identity Federation
+
+env:
+  REGION: europe-west1
+  SERVICE: languagelearner-backend
+  REPOSITORY: languagelearner
+
+jobs:
+  deploy:
+    # Skipped until the repository variables of docs/deployment.md are set.
+    if: ${{ vars.GCP_PROJECT_ID != '' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      PROJECT_ID: ${{ vars.GCP_PROJECT_ID }}
+      RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
+      SHEETS_SPREADSHEET_ID: ${{ vars.SHEETS_SPREADSHEET_ID }}
+      AUTH_GOOGLE_CLIENT_ID: ${{ vars.AUTH_GOOGLE_CLIENT_ID }}
+    steps:
+      - uses: actions/checkout@v4
+
+      # No key file anywhere: GitHub proves who it is with a short-lived token.
+      - uses: google-github-actions/auth@v3
+        with:
+          workload_identity_provider: ${{ vars.GCP_WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.GCP_DEPLOY_SERVICE_ACCOUNT }}
+
+      - uses: google-github-actions/setup-gcloud@v3
+
+      - name: Build and push the image
+        run: |
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+          IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${REPOSITORY}/backend:${GITHUB_SHA}"
+          docker build --tag "$IMAGE" .
+          docker push "$IMAGE"
+          echo "IMAGE=$IMAGE" >> "$GITHUB_ENV"
+
+      - name: Deploy to Cloud Run
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "$IMAGE" \
+            --region "$REGION" \
+            --project "$PROJECT_ID" \
+            --service-account "$RUNTIME_SERVICE_ACCOUNT" \
+            --allow-unauthenticated \
+            --min-instances 0 \
+            --max-instances 2 \
+            --cpu 1 \
+            --memory 512Mi \
+            --cpu-boost \
+            --timeout 60 \
+            --set-env-vars "SHEETS_SPREADSHEET_ID=${SHEETS_SPREADSHEET_ID},AUTH_GOOGLE_CLIENT_ID=${AUTH_GOOGLE_CLIENT_ID},LOGGING_STRUCTURED_FORMAT_CONSOLE=gcp" \
+            --set-secrets "DATABASE_URL=languagelearner-database-url:latest,DATABASE_USERNAME=languagelearner-database-username:latest,DATABASE_PASSWORD=languagelearner-database-password:latest"
+
+      - name: Check the new revision
+        run: |
+          URL="$(gcloud run services describe "$SERVICE" --region "$REGION" --project "$PROJECT_ID" --format 'value(status.url)')"
+          echo "Service: $URL"
+          for path in /actuator/health/liveness /actuator/health; do
+            ok=no
+            for attempt in 1 2 3 4 5 6; do
+              body="$(curl -sS --max-time 30 "${URL}${path}" || true)"
+              if echo "$body" | grep -q '"status":"UP"'; then ok=yes; break; fi
+              echo "Attempt $attempt of ${path}: $body"
+              sleep 10
+            done
+            if [ "$ok" != yes ]; then
+              echo "::error::${path} is not UP after the deployment"
+              exit 1
+            fi
+            echo "${path} is UP"
+          done

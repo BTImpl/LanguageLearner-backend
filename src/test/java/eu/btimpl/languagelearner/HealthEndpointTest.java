@@ -29,4 +29,16 @@ class HealthEndpointTest {
     assertThat(response.statusCode()).isEqualTo(200);
     assertThat(response.body()).contains("\"status\":\"UP\"");
   }
+
+  @Test
+  void livenessIsUpWithoutAuthentication() throws Exception {
+    URI uri = URI.create("http://localhost:" + port + "/actuator/health/liveness");
+    HttpRequest request = HttpRequest.newBuilder(uri).build();
+
+    HttpResponse<String> response =
+        HttpClient.newHttpClient().send(request, HttpResponse.BodyHandlers.ofString());
+
+    assertThat(response.statusCode()).isEqualTo(200);
+    assertThat(response.body()).contains("\"status\":\"UP\"");
+  }
 }
