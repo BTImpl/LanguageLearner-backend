@@ -16,4 +16,6 @@ USER app
 # Cloud Run sets PORT; 8080 is the default for local runs.
 ENV PORT=8080
 EXPOSE 8080
-ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-jar", "/app/app.jar"]
+# Small container, short life: the serial GC and the C1 compiler alone start
+# fastest and need the least memory.
+ENTRYPOINT ["java", "-XX:MaxRAMPercentage=75", "-XX:+UseSerialGC", "-XX:TieredStopAtLevel=1", "-jar", "/app/app.jar"]

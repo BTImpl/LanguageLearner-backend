@@ -80,6 +80,18 @@ Everything that differs per environment comes from environment variables;
 More variables (spreadsheet id, web client id, database connection) are added
 by the cards that need them and listed here.
 
+## Deployment
+
+The service runs on Cloud Run with a free Neon PostgreSQL, and every change
+that reaches `main` is deployed automatically by
+`.github/workflows/deploy.yml`. The one-time setup (Artifact Registry,
+Workload Identity Federation, secrets, the warm-up ping), how to check a
+deployment and how to **roll back** to an earlier version are in
+[docs/deployment.md](docs/deployment.md).
+
+`/actuator/health` includes the database; `/actuator/health/liveness` does
+not, and is what the scheduled ping calls.
+
 ## Google Sheet
 
 The teacher keeps the words in one spreadsheet, shared with the service account
