@@ -3,6 +3,11 @@
 spring:
   application:
     name: languagelearner-backend
+  datasource:
+    # The local database of docker-compose.yml; see the README.
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/languagelearner}
+    username: ${DATABASE_USERNAME:languagelearner}
+    password: ${DATABASE_PASSWORD:}
 
 server:
   # Cloud Run tells the port in PORT.

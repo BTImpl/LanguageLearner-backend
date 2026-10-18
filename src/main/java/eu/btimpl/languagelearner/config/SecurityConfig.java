@@ -1,6 +1,7 @@
 package eu.btimpl.languagelearner.config;
 
 import eu.btimpl.languagelearner.api.ApiErrors;
+import eu.btimpl.languagelearner.attempts.StudentRegistry;
 import eu.btimpl.languagelearner.auth.StudentLookupFilter;
 import eu.btimpl.languagelearner.sheets.StudentDirectory;
 import org.springframework.context.annotation.Bean;
@@ -36,8 +37,8 @@ class SecurityConfig {
           ApiErrors.write(response, HttpStatus.FORBIDDEN, "FORBIDDEN", "Access is denied");
 
   @Bean
-  SecurityFilterChain securityFilterChain(HttpSecurity http, StudentDirectory students)
-      throws Exception {
+  SecurityFilterChain securityFilterChain(
+      HttpSecurity http, StudentDirectory students, StudentRegistry registry) throws Exception {
     http.authorizeHttpRequests(
             requests ->
                 requests
@@ -57,7 +58,8 @@ class SecurityConfig {
         .exceptionHandling(
             handling ->
                 handling.authenticationEntryPoint(UNAUTHORIZED).accessDeniedHandler(FORBIDDEN))
-        .addFilterAfter(new StudentLookupFilter(students), BearerTokenAuthenticationFilter.class);
+        .addFilterAfter(
+            new StudentLookupFilter(students, registry), BearerTokenAuthenticationFilter.class);
     return http.build();
   }
 }

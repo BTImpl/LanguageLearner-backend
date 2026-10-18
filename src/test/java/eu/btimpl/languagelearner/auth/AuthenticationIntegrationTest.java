@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.when;
 
 import com.nimbusds.jwt.JWTClaimsSet;
+import eu.btimpl.languagelearner.TestDatabase;
 import eu.btimpl.languagelearner.sheets.SheetsClient;
 import eu.btimpl.languagelearner.sheets.SheetsException;
 import java.net.URI;
@@ -28,7 +29,7 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
  * replaces Google's keys; every other check is the production one.
  */
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
-@Import(AuthTestSupport.Config.class)
+@Import({AuthTestSupport.Config.class, TestDatabase.class})
 // Every test sets up its own sheet, so nothing may be kept between requests.
 @TestPropertySource(properties = {"app.cache.students-ttl=0s", "app.cache.decks-ttl=0s"})
 class AuthenticationIntegrationTest {
