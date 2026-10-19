@@ -48,7 +48,8 @@ app:
     # A student can force a re-read (POST /api/v1/decks/refresh) at most this often.
     refresh-interval: 10s
   auth:
-    # The web OAuth client id; a sign-in token is only accepted when issued for it.
+    # The OAuth client ids of the app (web and iOS), separated by ';'; a sign-in token is only
+    # accepted when issued for one of them. A native iOS sign-in issues the token for the iOS client.
     google-client-id: ${AUTH_GOOGLE_CLIENT_ID:}
     # Where Google publishes the keys its ID tokens are signed with.
     google-jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs

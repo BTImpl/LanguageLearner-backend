@@ -16,14 +16,14 @@ class GoogleJwtDecoderConfig {
 
   @Bean
   JwtDecoder googleJwtDecoder(AuthProperties properties) {
-    if (properties.googleClientId().isEmpty()) {
+    if (properties.googleClientIds().isEmpty()) {
       log.warn("AUTH_GOOGLE_CLIENT_ID is not set: every sign-in token will be rejected");
     }
     NimbusJwtDecoder decoder =
         NimbusJwtDecoder.withJwkSetUri(properties.googleJwkSetUri())
             .jwsAlgorithm(SignatureAlgorithm.RS256)
             .build();
-    decoder.setJwtValidator(GoogleTokenValidators.create(properties.googleClientId()));
+    decoder.setJwtValidator(GoogleTokenValidators.create(properties.googleClientIds()));
     return decoder;
   }
 }

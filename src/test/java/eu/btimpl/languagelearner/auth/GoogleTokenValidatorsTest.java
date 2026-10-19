@@ -12,8 +12,10 @@ import org.springframework.security.oauth2.jwt.Jwt;
 class GoogleTokenValidatorsTest {
 
   private static final String CLIENT_ID = "web-client-id";
+  private static final String IOS_CLIENT_ID = "ios-client-id";
 
-  private final OAuth2TokenValidator<Jwt> validator = GoogleTokenValidators.create(CLIENT_ID);
+  private final OAuth2TokenValidator<Jwt> validator =
+      GoogleTokenValidators.create(java.util.List.of(CLIENT_ID, IOS_CLIENT_ID));
 
   private static Jwt token(Consumer<Jwt.Builder> customizer) {
     Instant now = Instant.now();
@@ -69,13 +71,31 @@ class GoogleTokenValidatorsTest {
   }
 
   @Test
+  void acceptsATokenForAnyOfTheConfiguredClients() {
+    assertThat(accepts(builder -> builder.claim("aud", java.util.List.of(CLIENT_ID)))).isTrue();
+    assertThat(accepts(builder -> builder.claim("aud", java.util.List.of(IOS_CLIENT_ID)))).isTrue();
+  }
+
+  @Test
+  void rejectsATokenForAClientThatIsNotConfigured() {
+    OAuth2TokenValidator<Jwt> webOnly = GoogleTokenValidators.create(java.util.List.of(CLIENT_ID));
+
+    assertThat(
+            webOnly
+                .validate(token(builder -> builder.claim("aud", java.util.List.of(IOS_CLIENT_ID))))
+                .hasErrors())
+        .isTrue();
+  }
+
+  @Test
   void rejectsATokenWithoutAudience() {
     assertThat(accepts(builder -> builder.claims(claims -> claims.remove("aud")))).isFalse();
   }
 
   @Test
   void rejectsEveryTokenWhileNoClientIdIsConfigured() {
-    OAuth2TokenValidator<Jwt> unconfigured = GoogleTokenValidators.create("");
+    OAuth2TokenValidator<Jwt> unconfigured =
+        GoogleTokenValidators.create(java.util.List.of("", " "));
 
     assertThat(
             unconfigured

@@ -1,6 +1,9 @@
 package eu.btimpl.languagelearner.auth;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import org.springframework.security.oauth2.core.DelegatingOAuth2TokenValidator;
 import org.springframework.security.oauth2.core.OAuth2Error;
 import org.springframework.security.oauth2.core.OAuth2TokenValidator;
@@ -10,7 +13,7 @@ import org.springframework.security.oauth2.jwt.JwtTimestampValidator;
 
 /**
  * The checks a Google ID token must pass besides its signature: not expired, issued by Google,
- * issued for this app, and with a verified e-mail address.
+ * issued for this app (one of its OAuth clients), and with a verified e-mail address.
  */
 final class GoogleTokenValidators {
 
@@ -20,12 +23,18 @@ final class GoogleTokenValidators {
 
   private GoogleTokenValidators() {}
 
-  static OAuth2TokenValidator<Jwt> create(String clientId) {
+  /**
+   * @param clientIds the OAuth client ids a token may be issued for; blanks are ignored. With none,
+   *     every token is rejected.
+   */
+  static OAuth2TokenValidator<Jwt> create(Collection<String> clientIds) {
+    Set<String> allowed =
+        clientIds.stream().filter(id -> !id.isBlank()).collect(Collectors.toUnmodifiableSet());
     List<OAuth2TokenValidator<Jwt>> validators =
         List.of(
             new JwtTimestampValidator(),
             GoogleTokenValidators::issuer,
-            token -> audience(token, clientId),
+            token -> audience(token, allowed),
             GoogleTokenValidators::verifiedEmail);
     return new DelegatingOAuth2TokenValidator<>(validators);
   }
@@ -38,10 +47,9 @@ final class GoogleTokenValidators {
     return failure("The token was not issued by Google");
   }
 
-  private static OAuth2TokenValidatorResult audience(Jwt token, String clientId) {
-    if (!clientId.isBlank()
-        && token.getAudience() != null
-        && token.getAudience().contains(clientId)) {
+  private static OAuth2TokenValidatorResult audience(Jwt token, Set<String> clientIds) {
+    List<String> audience = token.getAudience();
+    if (audience != null && audience.stream().anyMatch(clientIds::contains)) {
       return OAuth2TokenValidatorResult.success();
     }
     return failure("The token was not issued for this app");
