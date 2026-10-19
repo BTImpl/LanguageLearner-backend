@@ -152,7 +152,7 @@ gcloud iam service-accounts add-iam-policy-binding "$DEPLOY_SA" \
 
 ### 7. Repository variables
 
-None of these is a secret (a web client id is public by design), so they are
+None of these is a secret (an OAuth client id is public by design), so they are
 plain repository variables:
 
 ```
@@ -162,7 +162,7 @@ gh variable set GCP_RUNTIME_SERVICE_ACCOUNT --repo "$REPO" --body "$RUNTIME_SA"
 gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --repo "$REPO" \
   --body "projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github-actions"
 gh variable set SHEETS_SPREADSHEET_ID --repo "$REPO" --body "<spreadsheet id>"
-gh variable set AUTH_GOOGLE_CLIENT_ID --repo "$REPO" --body "<web OAuth client id>"
+gh variable set AUTH_GOOGLE_CLIENT_ID --repo "$REPO" --body "<web OAuth client id>;<iOS OAuth client id>"
 ```
 
 Until `GCP_PROJECT_ID` is set the deploy workflow is skipped.
@@ -208,8 +208,9 @@ curl -i "$URL/api/v1/decks"                  # 401, no token
 curl -H "Authorization: Bearer $ID_TOKEN" "$URL/api/v1/decks"   # the student's decks
 ```
 
-`$ID_TOKEN` is a Google ID token issued for the **web client id**. The app
-(card LL-27) gets one when the student signs in. Before the app exists, one
+`$ID_TOKEN` is a Google ID token issued for one of the clients in
+`AUTH_GOOGLE_CLIENT_ID`. The app (card LL-27) gets one when the student signs
+in; on iOS it is issued for the **iOS client**. A token for the **web client**
 can be fetched with the OAuth 2.0 Playground (gear icon: "Use your own OAuth
 credentials" with the web client id and secret, scopes `openid email`; add
 `https://developers.google.com/oauthplayground` as an authorized redirect URI

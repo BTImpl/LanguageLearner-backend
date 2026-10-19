@@ -40,7 +40,7 @@ public final class AuthTestSupport {
     JwtDecoder testJwtDecoder() {
       NimbusJwtDecoder decoder =
           NimbusJwtDecoder.withPublicKey((RSAPublicKey) KEYS.getPublic()).build();
-      decoder.setJwtValidator(GoogleTokenValidators.create(CLIENT_ID));
+      decoder.setJwtValidator(GoogleTokenValidators.create(java.util.List.of(CLIENT_ID)));
       return decoder;
     }
   }

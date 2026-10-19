@@ -69,7 +69,7 @@ Everything that differs per environment comes from environment variables;
 | `PORT` | port the service listens on | `8080` |
 | `SHEETS_SPREADSHEET_ID` | id of the teacher's spreadsheet (the part of its URL between `/d/` and `/edit`) | empty; reading fails until it is set |
 | `SHEETS_STUDENTS_TAB` | name of the tab that lists the students | `Students` |
-| `AUTH_GOOGLE_CLIENT_ID` | the web OAuth client id; sign-in tokens are only accepted when issued for it | empty; every token is rejected until it is set |
+| `AUTH_GOOGLE_CLIENT_ID` | the OAuth client ids of the app, the web and the iOS client, separated by `;`; sign-in tokens are only accepted when issued for one of them | empty; every token is rejected until it is set |
 | `DATABASE_URL` | JDBC url of the PostgreSQL | `jdbc:postgresql://localhost:5432/languagelearner` (the local compose database) |
 | `DATABASE_USERNAME` | database user | `languagelearner` |
 | `DATABASE_PASSWORD` | database password | empty; set it for every real database |
@@ -126,7 +126,8 @@ signature against Google's public keys and that the token
 
 - is not expired,
 - was issued by Google (`https://accounts.google.com`),
-- was issued for the web client in `AUTH_GOOGLE_CLIENT_ID` (`aud`),
+- was issued for one of the clients in `AUTH_GOOGLE_CLIENT_ID` (`aud`; a native iOS sign-in
+  issues the token for the iOS client, a web or Android sign-in for the web client),
 - has a verified e-mail address (`email_verified`).
 
 The e-mail address is then looked up on the `Students` tab. The answers are:
