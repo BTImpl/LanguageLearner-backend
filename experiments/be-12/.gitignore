@@ -1,0 +1,9 @@
+# Worksheet photos are copyrighted book pages / third-party screenshots: never commit them
+photos/*
+!photos/.gitkeep
+
+# Raw model answers and per-photo quizzes contain the worksheet text
+results/*.json
+results/*.bak
+
+__pycache__/
