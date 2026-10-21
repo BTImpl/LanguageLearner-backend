@@ -73,6 +73,7 @@ Everything that differs per environment comes from environment variables;
 | `GEMINI_API_KEY` | key of the Gemini API that reads the photos of worksheets (a billing-enabled project in production, see [Quiz extraction](#quiz-extraction)); never commit it | empty; reading a photo fails with `ExtractionUnavailableException` until it is set |
 | `GEMINI_MODEL` | the pinned Gemini model | `gemini-3.5-flash-lite` |
 | `GEMINI_TIMEOUT` | the longest a Gemini request may take | `60s` |
+| `QUIZ_DAILY_LIMIT` | how many quizzes from photos a student may have made per UTC day | `20` |
 | `DATABASE_URL` | JDBC url of the PostgreSQL | `jdbc:postgresql://localhost:5432/languagelearner` (the local compose database) |
 | `DATABASE_USERNAME` | database user | `languagelearner` |
 | `DATABASE_PASSWORD` | database password | empty; set it for every real database |
@@ -283,6 +284,18 @@ correct: the questions are only copied, never answered.
   model is not set up, over its limit, blocked, unreachable or too slow; trying
   again later may work), 401 without a token and 403 for an account that is not
   on the student list.
+- **Daily limit.** Every photo is a paid model call, so a student may have at most
+  20 quizzes made per UTC day (`QUIZ_DAILY_LIMIT`, `app.quiz.limit.per-day`).
+  The next one is refused with 429 `DAILY_LIMIT_REACHED`; the body also has
+  `limit` and `resetsAt` (the next midnight, UTC, for example
+  `2026-10-22T00:00:00Z`), and the `Retry-After` header the seconds until then.
+  Only requests that reach the model count: an invalid request (no image, wrong
+  type, too large) does not, and neither does a call the model could not answer
+  (503), which is given back. A photo the model read but found no questions on
+  (422) does count, because that call was paid for. The counts are kept in the
+  memory of the instance, so they start again when it restarts and each instance
+  has its own; with two students and a service scaled to zero that is acceptable
+  for a safety net, and it needs no database table.
 - **Time.** A call takes about 10-20 seconds. The request to the model times out
   after `GEMINI_TIMEOUT` (60 seconds).
 

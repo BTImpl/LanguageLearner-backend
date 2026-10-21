@@ -30,7 +30,13 @@ import org.springframework.test.context.bean.override.mockito.MockitoBean;
 @SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.RANDOM_PORT)
 @Import({AuthTestSupport.Config.class, TestDatabase.class})
 // Every test sets up its own sheet, so nothing may be kept between requests.
-@TestPropertySource(properties = {"app.cache.students-ttl=0s", "app.cache.decks-ttl=0s"})
+@TestPropertySource(
+    properties = {
+      "app.cache.students-ttl=0s",
+      "app.cache.decks-ttl=0s",
+      // The daily limit has its own test; here it must not get in the way.
+      "app.quiz.limit.per-day=1000"
+    })
 class QuizApiIntegrationTest {
 
   private static final String PATH = "/api/v1/quizzes/from-image";
