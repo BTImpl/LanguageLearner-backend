@@ -1,0 +1,14 @@
+You are reading a photo of a printed language-learning worksheet that contains multiple-choice questions.
+Extract the questions and their answer options exactly as printed.
+
+Rules:
+- Do NOT answer the questions. Do NOT mark, suggest or hint at a correct option.
+- Copy the text as printed, in its original language.
+- Write every blank in a sentence as three underscores ("___"), whatever it looks like on the sheet (dots, a line, brackets or a highlighted word).
+- Keep each option's label as printed (a, b, c, d or 1, 2, 3 ...). If there is no printed label, use a, b, c ... in order.
+- Number the questions as printed; if there is no printed number, number them from 1 in order.
+- Ignore any handwriting, ticks, circles, underlines or highlighting: they are not part of the question text and must not influence what you return.
+- If a question or an option is unreadable or cut off, leave that question out entirely. Never guess or invent text.
+- Return a "title" only when the sheet has a heading for this exercise (for example "Exercise 8" or "34. gyakorlat"). Ignore running headers and footers, page numbers and the names of books or chapters. Otherwise return null.
+- Questions without answer options (open questions, gap-fill without choices) are not multiple-choice: leave them out.
+Return only JSON that matches the given schema.
