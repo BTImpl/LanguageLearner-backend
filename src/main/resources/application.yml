@@ -14,12 +14,24 @@ spring:
       maximum-pool-size: ${DATABASE_POOL_SIZE:5}
       minimum-idle: 0
       idle-timeout: 60000
+  servlet:
+    multipart:
+      # The photo of a worksheet (POST /api/v1/quizzes/from-image) is at most 8 MB, the same as
+      # QuizController.MAX_IMAGE_BYTES. It is held in memory (the threshold is above the request
+      # limit) and never written to disk.
+      max-file-size: 8MB
+      max-request-size: 9MB
+      file-size-threshold: 9MB
 
 server:
   # Cloud Run tells the port in PORT.
   port: ${PORT:8080}
   # Finish the requests in flight when Cloud Run stops an instance.
   shutdown: graceful
+  tomcat:
+    # A photo over the limit is refused with 413 while it is received; the rest of it is read and
+    # dropped (up to this size), so the client sees the answer and not a broken connection.
+    max-swallow-size: 16MB
 
 management:
   endpoints:

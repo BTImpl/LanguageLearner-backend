@@ -242,6 +242,50 @@ its own.
   lost: the app keeps the answers and sends them again later. The batch is
   stored in one transaction.
 
+### Quiz from a photo
+
+`POST /api/v1/quizzes/from-image` reads the multiple-choice questions of a
+photographed worksheet (see [Quiz extraction](#quiz-extraction)). Send a
+`multipart/form-data` request with the photo in the `image` field:
+
+```
+curl -H "Authorization: Bearer $ID_TOKEN" -F image=@sheet.jpg \
+  http://localhost:8080/api/v1/quizzes/from-image
+```
+
+```
+{
+  "title": "Unit 5 - Travel",
+  "questions": [
+    {
+      "number": 1,
+      "text": "She ___ to the airport yesterday.",
+      "options": [{"label": "a", "text": "go"}, {"label": "b", "text": "went"}]
+    }
+  ],
+  "skippedQuestions": 0
+}
+```
+
+`title` is `null` when the sheet has no heading of its own; `skippedQuestions`
+counts the incomplete questions that were left out. No option is marked as
+correct: the questions are only copied, never answered.
+
+- **Image.** JPEG or PNG, at most 8 MB. The type is read from the first bytes of
+  the file, not from the declared `Content-Type`. The photo is only kept in
+  memory while the request runs; nothing is stored and the database is not
+  touched. The log has the size, the number of questions and the duration, never
+  the image or the question texts.
+- **Errors** (all with the usual `{"code": ..., "message": ...}` body): 400
+  `IMAGE_MISSING` (no or empty `image` field, or not a multipart request), 413
+  `IMAGE_TOO_LARGE`, 415 `IMAGE_TYPE_UNSUPPORTED`, 422 `NO_QUESTIONS_FOUND` (not
+  a single question could be read completely), 503 `EXTRACTION_UNAVAILABLE` (the
+  model is not set up, over its limit, blocked, unreachable or too slow; trying
+  again later may work), 401 without a token and 403 for an account that is not
+  on the student list.
+- **Time.** A call takes about 10-20 seconds. The request to the model times out
+  after `GEMINI_TIMEOUT` (60 seconds).
+
 The OpenAPI description is served at `/v3/api-docs`. Like everything else it
 needs a token of a student on the list.
 
