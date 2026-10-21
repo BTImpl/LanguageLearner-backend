@@ -70,7 +70,7 @@ Everything that differs per environment comes from environment variables;
 | `SHEETS_SPREADSHEET_ID` | id of the teacher's spreadsheet (the part of its URL between `/d/` and `/edit`) | empty; reading fails until it is set |
 | `SHEETS_STUDENTS_TAB` | name of the tab that lists the students | `Students` |
 | `AUTH_GOOGLE_CLIENT_ID` | the OAuth client ids of the app, the web and the iOS client, separated by `;`; sign-in tokens are only accepted when issued for one of them | empty; every token is rejected until it is set |
-| `GEMINI_API_KEY` | key of the Gemini API that reads the photos of worksheets (a billing-enabled project in production, see [Quiz extraction](#quiz-extraction)); never commit it | empty; reading a photo fails with `ExtractionUnavailableException` until it is set |
+| `GEMINI_API_KEY` | key of the Gemini API that reads the photos of worksheets (a free AI Studio key for now, see [Quiz extraction](#quiz-extraction)); on Cloud Run it comes from Secret Manager; never commit it | empty; reading a photo fails with `ExtractionUnavailableException` until it is set |
 | `GEMINI_MODEL` | the pinned Gemini model | `gemini-3.5-flash-lite` |
 | `GEMINI_TIMEOUT` | the longest a Gemini request may take | `60s` |
 | `QUIZ_DAILY_LIMIT` | how many quizzes from photos a student may have made per UTC day | `20` |
@@ -326,9 +326,17 @@ test can replace it and the model can be changed later.
   HTTP errors, a request blocked for safety, a cut-off or unusable answer, a timeout)
   is an `ExtractionUnavailableException`; the endpoint of BE-14 turns it into a 503.
   The key is never part of a message or a log line.
-- **Production.** The free AI Studio key is only for local experiments: the Gemini API
-  terms require the paid service for apps made available to users in the EEA. The
-  deployed service needs a billing-enabled project with a cost cap (BE-16).
+- **Key and deployment.** The key is only ever read from the environment
+  (`GEMINI_API_KEY`). On Cloud Run it comes from Secret Manager, and how to create
+  it, replace it and give it to the service is in
+  [docs/deployment.md](docs/deployment.md#the-gemini-api-key-photo-quiz).
+- **Free key for now.** The experiment runs on a free Google AI Studio key. That
+  is fine for the two known users, but the Gemini API terms require the paid
+  service for apps made available to users in the EEA, and on the free plan
+  Google may use what is sent to improve its products (so photograph worksheets
+  without names). The move to a billing-enabled project with a cost cap is card
+  BE-17; do it before anyone else uses the app. When the free quota is used up
+  the answer is 503 `EXTRACTION_UNAVAILABLE`.
 
 ## Database
 

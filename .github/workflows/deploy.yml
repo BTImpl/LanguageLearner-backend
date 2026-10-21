@@ -34,6 +34,13 @@ jobs:
       RUNTIME_SERVICE_ACCOUNT: ${{ vars.GCP_RUNTIME_SERVICE_ACCOUNT }}
       SHEETS_SPREADSHEET_ID: ${{ vars.SHEETS_SPREADSHEET_ID }}
       AUTH_GOOGLE_CLIENT_ID: ${{ vars.AUTH_GOOGLE_CLIENT_ID }}
+      # Photo quiz (docs/deployment.md, "The Gemini API key"). All optional: without
+      # GEMINI_API_KEY_SECRET the service deploys without a key and the photo quiz
+      # answers 503 until it is set up; the others fall back to the defaults of the app.
+      GEMINI_API_KEY_SECRET: ${{ vars.GEMINI_API_KEY_SECRET }}
+      GEMINI_MODEL: ${{ vars.GEMINI_MODEL }}
+      GEMINI_TIMEOUT: ${{ vars.GEMINI_TIMEOUT }}
+      QUIZ_DAILY_LIMIT: ${{ vars.QUIZ_DAILY_LIMIT }}
     steps:
       - uses: actions/checkout@v4
 
@@ -55,6 +62,14 @@ jobs:
 
       - name: Deploy to Cloud Run
         run: |
+          ENV_VARS="SHEETS_SPREADSHEET_ID=${SHEETS_SPREADSHEET_ID},AUTH_GOOGLE_CLIENT_ID=${AUTH_GOOGLE_CLIENT_ID}"
+          SECRETS="DATABASE_URL=languagelearner-database-url:latest,DATABASE_USERNAME=languagelearner-database-username:latest,DATABASE_PASSWORD=languagelearner-database-password:latest"
+          # --set-env-vars replaces all variables, so the optional ones are passed on every deployment.
+          if [ -n "$GEMINI_MODEL" ]; then ENV_VARS="${ENV_VARS},GEMINI_MODEL=${GEMINI_MODEL}"; fi
+          if [ -n "$GEMINI_TIMEOUT" ]; then ENV_VARS="${ENV_VARS},GEMINI_TIMEOUT=${GEMINI_TIMEOUT}"; fi
+          if [ -n "$QUIZ_DAILY_LIMIT" ]; then ENV_VARS="${ENV_VARS},QUIZ_DAILY_LIMIT=${QUIZ_DAILY_LIMIT}"; fi
+          # The key itself lives in Secret Manager only; this is just the name of the secret.
+          if [ -n "$GEMINI_API_KEY_SECRET" ]; then SECRETS="${SECRETS},GEMINI_API_KEY=${GEMINI_API_KEY_SECRET}:latest"; fi
           gcloud run deploy "$SERVICE" \
             --image "$IMAGE" \
             --region "$REGION" \
@@ -64,11 +79,12 @@ jobs:
             --min-instances 0 \
             --max-instances 2 \
             --cpu 1 \
-            --memory 512Mi \
+            --memory 1Gi \
+            --concurrency 8 \
             --cpu-boost \
-            --timeout 60 \
-            --set-env-vars "SHEETS_SPREADSHEET_ID=${SHEETS_SPREADSHEET_ID},AUTH_GOOGLE_CLIENT_ID=${AUTH_GOOGLE_CLIENT_ID}" \
-            --set-secrets "DATABASE_URL=languagelearner-database-url:latest,DATABASE_USERNAME=languagelearner-database-username:latest,DATABASE_PASSWORD=languagelearner-database-password:latest"
+            --timeout 120 \
+            --set-env-vars "$ENV_VARS" \
+            --set-secrets "$SECRETS"
 
       - name: Check the new revision
         run: |
