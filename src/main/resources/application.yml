@@ -75,3 +75,7 @@ app:
       base-url: https://generativelanguage.googleapis.com/v1beta
       # The longest a request may take; an answer needs about 10-20 seconds.
       timeout: ${GEMINI_TIMEOUT:60s}
+    limit:
+      # How many quizzes from photos a student may have made per day (UTC). Every one is a paid
+      # model call. The count is kept in memory, so it starts again when the instance restarts.
+      per-day: ${QUIZ_DAILY_LIMIT:20}

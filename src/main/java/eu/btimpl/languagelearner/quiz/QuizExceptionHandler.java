@@ -5,6 +5,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -41,6 +42,16 @@ class QuizExceptionHandler {
     QuizImageException missing = QuizImageException.missing();
     return ResponseEntity.status(missing.status())
         .body(new ApiError(missing.code(), missing.getMessage()));
+  }
+
+  /** The student has used all the quizzes of the day. */
+  @ExceptionHandler(DailyLimitReachedException.class)
+  ResponseEntity<DailyLimitError> dailyLimitReached(DailyLimitReachedException e) {
+    log.info("A student reached the daily limit of {} quizzes", e.limit());
+    long seconds = Math.max(1, e.retryAfter().toSeconds());
+    return ResponseEntity.status(429)
+        .header(HttpHeaders.RETRY_AFTER, Long.toString(seconds))
+        .body(DailyLimitError.of(e));
   }
 
   @ExceptionHandler(NoQuestionsFoundException.class)

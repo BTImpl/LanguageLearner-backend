@@ -1,6 +1,7 @@
 package eu.btimpl.languagelearner.quiz;
 
 import eu.btimpl.languagelearner.api.ApiError;
+import eu.btimpl.languagelearner.auth.CurrentStudent;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -8,6 +9,7 @@ import io.swagger.v3.oas.annotations.responses.ApiResponse;
 import java.io.IOException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
@@ -31,9 +33,11 @@ class QuizController {
   static final long MAX_IMAGE_BYTES = 8L * 1024 * 1024;
 
   private final QuizExtractor extractor;
+  private final DailyQuizLimit dailyLimit;
 
-  QuizController(QuizExtractor extractor) {
+  QuizController(QuizExtractor extractor, DailyQuizLimit dailyLimit) {
     this.extractor = extractor;
+    this.dailyLimit = dailyLimit;
   }
 
   @PostMapping("/from-image")
@@ -43,7 +47,9 @@ class QuizController {
           "Send a JPEG or PNG photo of at most 8 MB in the 'image' field of a "
               + "multipart/form-data request. The multiple-choice questions and their options are "
               + "copied from the sheet; nothing is answered, so no option is marked as correct. "
-              + "The photo is not stored. A call can take 10-20 seconds.")
+              + "The photo is not stored. A call can take 10-20 seconds. Every call is a paid "
+              + "model call, so a student may have a limited number made per day (UTC); only "
+              + "calls the model answered count.")
   @ApiResponse(
       responseCode = "200",
       description = "The quiz; skippedQuestions counts the incomplete questions left out")
@@ -72,12 +78,20 @@ class QuizController {
       description = "No question could be read completely from the image (NO_QUESTIONS_FOUND)",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
   @ApiResponse(
+      responseCode = "429",
+      description =
+          "The daily limit is reached (DAILY_LIMIT_REACHED); resetsAt tells when the count "
+              + "starts again, and the Retry-After header has the seconds until then",
+      content = @Content(schema = @Schema(implementation = DailyLimitError.class)))
+  @ApiResponse(
       responseCode = "503",
       description =
           "The service that reads the image is not available or took too long "
               + "(EXTRACTION_UNAVAILABLE); trying again later may work",
       content = @Content(schema = @Schema(implementation = ApiError.class)))
-  QuizResponse fromImage(@RequestPart(name = "image", required = false) MultipartFile image) {
+  QuizResponse fromImage(
+      @AuthenticationPrincipal CurrentStudent student,
+      @RequestPart(name = "image", required = false) MultipartFile image) {
     if (image == null || image.isEmpty()) {
       throw QuizImageException.missing();
     }
@@ -88,6 +102,8 @@ class QuizController {
     QuizImageType type =
         QuizImageType.detect(bytes).orElseThrow(QuizImageException::unsupportedType);
 
+    // Checked last, so a request that is invalid anyway neither counts nor is refused for it.
+    DailyQuizLimit.Reservation reservation = dailyLimit.reserve(student.email());
     long started = System.nanoTime();
     try {
       QuizResponse response = QuizResponse.of(extractor.extract(bytes, type.mediaType()));
@@ -98,12 +114,22 @@ class QuizController {
           response.skippedQuestions(),
           millisSince(started));
       return response;
-    } catch (NoQuestionsFoundException | ExtractionUnavailableException e) {
+    } catch (NoQuestionsFoundException e) {
+      // The model did answer (and was paid for), so this one counts.
       log.info(
-          "No quiz made from an image of {} KB ({}) after {} ms",
+          "No quiz made from an image of {} KB (no questions) after {} ms",
           bytes.length / 1024,
-          e.getClass().getSimpleName(),
           millisSince(started));
+      throw e;
+    } catch (RuntimeException e) {
+      // The model could not be used: the student gets the generation back.
+      dailyLimit.release(reservation);
+      if (e instanceof ExtractionUnavailableException) {
+        log.info(
+            "No quiz made from an image of {} KB (unavailable) after {} ms",
+            bytes.length / 1024,
+            millisSince(started));
+      }
       throw e;
     }
   }
