@@ -70,6 +70,9 @@ Everything that differs per environment comes from environment variables;
 | `SHEETS_SPREADSHEET_ID` | id of the teacher's spreadsheet (the part of its URL between `/d/` and `/edit`) | empty; reading fails until it is set |
 | `SHEETS_STUDENTS_TAB` | name of the tab that lists the students | `Students` |
 | `AUTH_GOOGLE_CLIENT_ID` | the OAuth client ids of the app, the web and the iOS client, separated by `;`; sign-in tokens are only accepted when issued for one of them | empty; every token is rejected until it is set |
+| `GEMINI_API_KEY` | key of the Gemini API that reads the photos of worksheets (a billing-enabled project in production, see [Quiz extraction](#quiz-extraction)); never commit it | empty; reading a photo fails with `ExtractionUnavailableException` until it is set |
+| `GEMINI_MODEL` | the pinned Gemini model | `gemini-3.5-flash-lite` |
+| `GEMINI_TIMEOUT` | the longest a Gemini request may take | `60s` |
 | `DATABASE_URL` | JDBC url of the PostgreSQL | `jdbc:postgresql://localhost:5432/languagelearner` (the local compose database) |
 | `DATABASE_USERNAME` | database user | `languagelearner` |
 | `DATABASE_PASSWORD` | database password | empty; set it for every real database |
@@ -241,6 +244,34 @@ its own.
 
 The OpenAPI description is served at `/v3/api-docs`. Like everything else it
 needs a token of a student on the list.
+
+## Quiz extraction
+
+`QuizExtractor` turns the photo of a printed multiple-choice worksheet into an
+`ExtractedQuiz` (title, numbered questions, labelled options). The rest of the
+app only knows the interface; `GeminiQuizExtractor` is the implementation, so a
+test can replace it and the model can be changed later.
+
+- **The call.** The photo goes to the Gemini `generateContent` endpoint as inline
+  data with a Spring `RestClient`; the key is sent in the `x-goog-api-key` header,
+  never in the URL. The answer is bound to a JSON schema, so it is a structure and
+  not free text. The model is pinned (`GEMINI_MODEL`, `gemini-3.5-flash-lite` as in
+  the BE-12 experiment), not an alias like `-latest`.
+- **The prompt** is in `src/main/resources/quiz/extraction-prompt.txt`. It only
+  allows copying the questions: answering them, marking or suggesting the correct
+  option is forbidden, and what cannot be read is left out, never guessed. A test
+  checks that the prompt keeps saying so.
+- **Validation.** The answer is checked even though it follows a schema: a question
+  needs a number, a text and 2 to 5 options with a label and a text. An incomplete
+  question is dropped and counted in `droppedQuestions`, never repaired.
+- **Errors.** No usable question at all is a `NoQuestionsFoundException`. Everything
+  that stops the model from being used (no key, too many requests or quota used up,
+  HTTP errors, a request blocked for safety, a cut-off or unusable answer, a timeout)
+  is an `ExtractionUnavailableException`; the endpoint of BE-14 turns it into a 503.
+  The key is never part of a message or a log line.
+- **Production.** The free AI Studio key is only for local experiments: the Gemini API
+  terms require the paid service for apps made available to users in the EEA. The
+  deployed service needs a billing-enabled project with a cost cap (BE-16).
 
 ## Database
 
