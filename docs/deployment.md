@@ -14,11 +14,14 @@ Cloud Scheduler ──(ping every 5 minutes)──▶ /actuator/health/liveness
   student list in the sheet).
 - The service runs as the service account the teacher's sheet is shared with
   (card BE-02), so it reads the sheet with no key file.
-- Minimum 0 instances (it sleeps when unused), startup CPU boost, 512 MiB, at
-  most 2 instances.
+- Minimum 0 instances (it sleeps when unused), startup CPU boost, 1 GiB, at
+  most 2 instances, 8 requests at a time per instance, and a request timeout of
+  120 seconds. The photo quiz needs the room: a photo of up to 8 MB is held in
+  memory (a few times over: the upload, its base64 form and the request body)
+  and a call of the model takes 10-20 seconds, up to its own 60 second timeout.
 - The Flyway migrations run when an instance starts.
-- Settings come from environment variables; the three database values come
-  from Secret Manager.
+- Settings come from environment variables; the three database values and the
+  Gemini API key come from Secret Manager.
 
 ## One-time setup
 
@@ -108,6 +111,56 @@ for secret in url username password; do
 done
 ```
 
+#### The Gemini API key (photo quiz)
+
+The photo quiz reads worksheets with the Gemini API (card BE-13). For now it
+runs on a **free Google AI Studio key**; the move to a paid project is card
+BE-17 and is described below.
+
+1. Create a key at <https://aistudio.google.com/apikey> (free plan, no card
+   needed). Do not paste it into a chat, a file in the repository or a shell
+   command.
+2. Copy it and create the secret from the clipboard, then let the service
+   account read it:
+
+```
+pbpaste | gcloud secrets create languagelearner-gemini-api-key --data-file=-
+gcloud secrets add-iam-policy-binding languagelearner-gemini-api-key \
+  --member="serviceAccount:$RUNTIME_SA" --role=roles/secretmanager.secretAccessor
+```
+
+3. Tell the deploy workflow the name of the secret (step 7 below,
+   `GEMINI_API_KEY_SECRET`). The workflow then gives the service the key as the
+   environment variable `GEMINI_API_KEY`. Until that variable is set the service
+   deploys without a key and the photo quiz answers 503
+   `EXTRACTION_UNAVAILABLE`; everything else works.
+
+**Replacing the key** (a new one, or the paid one of BE-17): add a new version
+of the secret, then run the **Deploy** workflow again so that a new revision
+starts and reads it (a running instance keeps the key it started with):
+
+```
+pbpaste | gcloud secrets versions add languagelearner-gemini-api-key --data-file=-
+```
+
+Afterwards disable the old version (`gcloud secrets versions list
+languagelearner-gemini-api-key`, then `gcloud secrets versions disable <number>
+--secret languagelearner-gemini-api-key`) and delete the old key in AI Studio.
+
+**What the free key means.** It is meant for this experiment and the two known
+users only.
+
+- The Gemini API terms require the paid service for apps that are made
+  available to users in the EEA. Move to a paid project (BE-17) **before anyone
+  but the two of you uses the app**.
+- On the free plan Google may use what is sent to improve its products. Photograph
+  worksheets without names or other personal data while it is in use. The paid
+  plan has different data terms (the content is not used for improving products).
+- The free plan has request and daily limits of its own. When they are used up
+  the model answers 429; the backend turns that into 503 `EXTRACTION_UNAVAILABLE`
+  and the app shows its "not available now" message. The daily limit per student
+  of the backend (`QUIZ_DAILY_LIMIT`, 20 by default) is a second, separate guard.
+
 ### 5. The deploy service account
 
 GitHub deploys as its own service account, separate from the one the service
@@ -163,7 +216,19 @@ gh variable set GCP_WORKLOAD_IDENTITY_PROVIDER --repo "$REPO" \
   --body "projects/$PROJECT_NUMBER/locations/global/workloadIdentityPools/github/providers/github-actions"
 gh variable set SHEETS_SPREADSHEET_ID --repo "$REPO" --body "<spreadsheet id>"
 gh variable set AUTH_GOOGLE_CLIENT_ID --repo "$REPO" --body "<web OAuth client id>;<iOS OAuth client id>"
+gh variable set GEMINI_API_KEY_SECRET --repo "$REPO" --body "languagelearner-gemini-api-key"
 ```
+
+`GEMINI_API_KEY_SECRET` is only the **name** of the secret of step 4, not the
+key. Set it once the secret exists: a deployment that refers to a secret that
+is not there fails. Four more variables are optional; set them only to change
+the defaults of the app, and note that they are passed on every deployment:
+
+| Variable | Meaning | Default of the app |
+| --- | --- | --- |
+| `GEMINI_MODEL` | the pinned Gemini model | `gemini-3.5-flash-lite` |
+| `GEMINI_TIMEOUT` | the longest a request to the model may take | `60s` |
+| `QUIZ_DAILY_LIMIT` | quizzes from photos per student and UTC day | `20` |
 
 Until `GCP_PROJECT_ID` is set the deploy workflow is skipped.
 
@@ -200,12 +265,32 @@ Console, **Billing**, **Budgets & alerts**, create a budget of a few euros with
 e-mail alerts at 50 % and 100 %. Nothing here should cost anything; the alert is
 the safety net.
 
+With the free Gemini key the photo quiz costs nothing either. The billing
+account, the budget for the Gemini calls and the paid key come with card BE-17.
+
+## Moving the photo quiz to the paid Gemini API (BE-17)
+
+Do this when the experiment is going on (card LL-58), and before anyone but the
+two known users uses the app.
+
+1. Enable billing for the Google Cloud project that will own the Gemini key and
+   enable the Gemini API in it.
+2. Create a key in that project, add it as a new version of
+   `languagelearner-gemini-api-key` and deploy again (see "Replacing the key"
+   above); disable the old version and delete the free key.
+3. Set the budget and the alerts of step 10 for that project (for example 5 EUR
+   a month, e-mails at 50 % and 100 %) and look at `QUIZ_DAILY_LIMIT`.
+4. Write down the prices from the Gemini price list in the card, and replace the
+   notes about the free plan in this file and in the README.
+
 ## Checking it works
 
 ```
 curl "$URL/actuator/health"                  # {"status":"UP"}
 curl -i "$URL/api/v1/decks"                  # 401, no token
 curl -H "Authorization: Bearer $ID_TOKEN" "$URL/api/v1/decks"   # the student's decks
+curl -H "Authorization: Bearer $ID_TOKEN" -F image=@sheet.jpg \
+  "$URL/api/v1/quizzes/from-image"           # the quiz of a worksheet (10-20 seconds)
 ```
 
 `$ID_TOKEN` is a Google ID token issued for one of the clients in
